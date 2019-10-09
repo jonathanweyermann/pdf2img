@@ -1,0 +1,7 @@
+{
+  "dependencies": {
+    "aws-sdk": "^2.546.0",
+    "pdf2img": "^0.5.0",
+    "pdf2img-lambda-friendly": "^2.0.0"
+  }
+}
