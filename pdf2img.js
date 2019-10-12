@@ -5,6 +5,7 @@ const path = require('path');
 const pdf2img = require('pdf2img-lambda-friendly');
 const aws = require('aws-sdk');
 const s3 = new aws.S3({ region: 'us-west-2' });
+const { exec } = require('child_process')
 require('events').EventEmitter.defaultMaxListeners = 100;
 
 
@@ -16,6 +17,7 @@ pdf2img.setOptions({
 });
 
 const grab_file_from_s3 = user => {
+  console.log(`user: ${user}`)
   return new Promise((resolve, reject) => {
     const destPath = `/tmp/${user}.pdf`
     var params = {
@@ -31,13 +33,13 @@ const grab_file_from_s3 = user => {
   });
 };
 
-const save_file_to_s3 = (path, name, user) => {
+const save_file_to_s3 = (path,key) => {
   console.log(`path: ${JSON.stringify(path)}`)
   fs.readFile(path, (err, data) => {
     var d = new Date();
     s3.putObject({
       Bucket: process.env.BUCKET,
-      Key: `${user}/${name}`,
+      Key: `${key}`,
       ContentType: data.type,
       Body: data
     }).promise()
@@ -59,27 +61,51 @@ module.exports.execute = async (event, context, callback) => {
     const split = key.split('/')
     console.log(split);
     const user = split[split.length-1].split('.')[0]
-    console.log(`New .pdf object has been created: ${user})`);
+    console.log(`New .pdf object has been created: ${user}`);
 
     try {
-        var response = await grab_file_from_s3(user)
+        var path = await grab_file_from_s3(user)
+        console.log(`path:" + ${path}`);
+        console.log(exec('./lambda-ghostscript/bin/gs -sDEVICE=jpeg -dTextAlphaBits=4 -r128 -o ' + "/" + user + '/image%d.jpg ' + path));
 
-        pdf2img.convert(response, function(err, info) {
-          console.log(response);
-          if (err) console.log(err)
-          else {
-            console.log(`info: ${JSON.stringify(info)}`);
-            for (var i = 0; i < info["message"].length; i++) {
-              console.log(`imp: ${info["message"][i]["path"]}`);
-              save_file_to_s3(info["message"][i]["path"], info["message"][i]["name"], user);
-            }
-          }
-        });
+        var index = 1
+        var putkey = `/${user}/image${index}.jpg`
+        while (fs.existsSync(putkey)) {
+          //file exists
+          index++;
+          putkey = `/${user}/image${index}.jpg`
+          save_file_to_s3(path, putkey);
+        }
+
+        // pdf2img.convert(response, function(err, info) {
+        //   console.log(response);
+        //   if (err) console.log(err)
+        //   else {
+        //     console.log(`info: ${JSON.stringify(info)}`);
+        //     for (var i = 0; i < info["message"].length; i++) {
+        //       console.log(`imp: ${info["message"][i]["path"]}`);
+        //       save_file_to_s3(info["message"][i]["path"], info["message"][i]["name"], user);
+        //     }
+        //   }
+        // });
     } catch (err) {
         console.error(err)
     }
 
   });
+
+  function wait(){
+    return new Promise((resolve, reject) => {
+        setTimeout(() => resolve("hello"), 500)
+    });
+  }
+
+  console.log(await wait());
+  console.log(await wait());
+  console.log(await wait());
+  console.log(await wait());
+  console.log(await wait());
+  console.log(await wait());
 
   return {
     statusCode: 200,
