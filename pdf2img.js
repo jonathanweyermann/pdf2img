@@ -2,21 +2,13 @@
 
 const fs = require('fs');
 const path = require('path');
-const pdf2img = require('pdf2img-lambda-friendly');
-const aws = require('aws-sdk');
-const s3 = new aws.S3({ region: 'us-west-2' });
+const AWS = require('aws-sdk');
+
 const exec = require('await-exec')
 require('events').EventEmitter.defaultMaxListeners = 100;
 
-
-pdf2img.setOptions({
-  type: 'png',                                // png or jpg, default jpg
-  density: 150,                               // default 600
-  outputdir: __dirname + path.sep + 'output', // output folder, default null (if null given, then it will create folder name same as file name)
-  outputname: 'test',                         // output file name, dafault null (if null given, then it will create image name same as input name)
-});
-
-const grab_file_from_s3 = user => {
+const grabPdfFromS3 = user => {
+  const S3 = new AWS.S3({ region: 'us-west-2' });
   console.log(`user: ${user}`)
   return new Promise((resolve, reject) => {
     const destPath = `/tmp/${user}.pdf`
@@ -25,35 +17,42 @@ const grab_file_from_s3 = user => {
       Key: `pdfs/${user}.pdf`
     }
     console.log(`params: ${JSON.stringify(params)}`)
-    const s3Stream = s3.getObject(params).createReadStream();
-    console.log(`s3Stream: ${JSON.stringify(s3Stream)}`)
-    const fileStream = fs.createWriteStream(destPath);
-    console.log(`fileStream: ${JSON.stringify(fileStream)}`)
-    s3Stream.on('error', reject);
-    fileStream.on('error', reject);
-    fileStream.on('close', () => { resolve(destPath);});
-    s3Stream.pipe(fileStream);
-    console.log(`fileStream: ${JSON.stringify(s3Stream.pipe(fileStream))}`)
+    S3.headObject(params)
+      .promise()
+      .then(() => {
+        const s3Stream = S3.getObject(params).createReadStream()
+        console.log(`s3Stream: ${JSON.stringify(s3Stream)}`)
+        const fileStream = fs.createWriteStream(destPath);
+        console.log(`fileStream: ${JSON.stringify(fileStream)}`)
+        s3Stream.on('error', reject);
+        fileStream.on('error', reject);
+        fileStream.on('close', () => { resolve(destPath);});
+        s3Stream.pipe(fileStream);
+        console.log(`fileStream: ${JSON.stringify(s3Stream.pipe(fileStream))}`)
+      })
+      .catch(error => {
+        reject(error)
+      });
   });
 };
 
-const save_file_to_s3 = (path,key) => {
-  console.log(`path: ${JSON.stringify(path)}`)
-  fs.readFile(path, (err, data) => {
-    var d = new Date();
-    s3.putObject({
-      Bucket: process.env.BUCKET,
-      Key: `${key}`,
-      ContentType: data.type,
-      Body: data
-    }).promise()
-      .then((response) => {
-        console.log(`snapshot done`, response);
-      })
-      .catch((err) => {
-        console.error(`path error: ${path}`);
-        console.error('Error', err);
+const saveFileToS3 = (path,key) => {
+  const S3 = new AWS.S3({ region: 'us-west-2' });
+  return new Promise((resolve, reject) => {
+    fs.readFile(path, (err, data) => {
+      S3.putObject({
+        Bucket: process.env.BUCKET,
+        Key: `${key}`,
+        ContentType: data.type,
+        Body: data
+      }, (error) => {
+        if (error) {
+         reject(`path error: ${path}`);
+        } else {
+         resolve(`success: saved ${path} to S3:${key}`);
+        }
       });
+    });
   });
 };
 
@@ -70,23 +69,10 @@ module.exports.execute = async (event, context, callback) => {
   console.log(`New .pdf object has been created: ${user}`);
 
   try {
-      var path = await grab_file_from_s3(user)
+      var path = await grabPdfFromS3(user)
       console.log(`path: ${path}`);
       console.log('./lambda-ghostscript/bin/gs -sDEVICE=jpeg -dTextAlphaBits=4 -r128 -o /tmp/image%d.jpg ' + path);
-      console.log(await exec('./lambda-ghostscript/bin/gs -sDEVICE=jpeg -dTextAlphaBits=4 -r128 -o /tmp/image%d.jpg ' + path));
-
-      // function wait(){
-      //   return new Promise((resolve, reject) => {
-      //       setTimeout(() => resolve("hello"), 2000)
-      //   });
-      // }
-      //
-      // console.log(await wait());
-      // console.log(await wait());
-      // console.log(await wait());
-      // console.log(await wait());
-      // console.log(await wait());
-      // console.log(await wait());
+      await exec('./lambda-ghostscript/bin/gs -sDEVICE=jpeg -dTextAlphaBits=4 -r128 -o /tmp/image%d.jpg ' + path);
 
       var index = 1
       var currentUrl = `/tmp/image${index}.jpg`
@@ -94,8 +80,9 @@ module.exports.execute = async (event, context, callback) => {
       console.log(`currentUrl: ${currentUrl}`)
       while (fs.existsSync(currentUrl)) {
         //file exists
-        save_file_to_s3(currentUrl, s3Url);
+        var response = await saveFileToS3(currentUrl, s3Url);
         index++;
+        console.log(`response: ${response}`)
         console.log(`s3Url: ${s3Url}`)
         console.log(`currentUrl: ${currentUrl}`)
         currentUrl = `/tmp/image${index}.jpg`
@@ -104,13 +91,13 @@ module.exports.execute = async (event, context, callback) => {
       console.log(`index: ${index}`);
       if (index > 1) {
         console.log("success, I guess")
-        callback(null, 200)
+        //callback(null, 200)
         return {
           statusCode: 200,
           body: JSON.stringify(
             {
               message: 'Your function executed successfully!',
-              input: event,
+              input: `${index} images were uploaded`,
             },
             null,
             2
@@ -118,7 +105,7 @@ module.exports.execute = async (event, context, callback) => {
         }
       }
   } catch (err) {
-      console.error(err)
+      console.log(err)
       return {
         statusCode: 500,
         body: JSON.stringify(
@@ -131,5 +118,7 @@ module.exports.execute = async (event, context, callback) => {
         ),
       }
   }
-  //});
 };
+
+module.exports.grabPdfFromS3 = grabPdfFromS3;
+module.exports.saveFileToS3 = saveFileToS3;
