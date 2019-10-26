@@ -7,6 +7,7 @@ provider:
   stage: dev
   region: us-west-2
   memorySize: 1792
+  timeout: 90
   iamRoleStatements:
   - Effect: Allow
     Action:

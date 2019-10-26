@@ -25,6 +25,7 @@ const grabPdfFromS3 = user => {
         s3Stream.pipe(fileStream);
       })
       .catch(error => {
+        console.log(`grabfroms3error: ${error}`);
         reject(error)
       });
   });
@@ -41,7 +42,8 @@ const saveFileToS3 = (path,key) => {
         Body: data
       }, (error) => {
         if (error) {
-         reject(`path error: ${path}`);
+          console.log(`savetos3error: ${error}`);
+         reject(`savetos3error: ${path}`);
         } else {
          resolve(`success: saved ${path} to S3:${key}`);
         }
@@ -77,6 +79,7 @@ module.exports.execute = async (event, context, callback) => {
         return { statusCode: 200, body: JSON.stringify({message: 'Success', input: `${index} images were uploaded`}, null, 2)}
       }
   } catch (err) {
+    console.log(`conversion error: ${err}`);
     return { statusCode: 500, body: JSON.stringify({message: err,input: event}, null, 2)}
   }
 };
