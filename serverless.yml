@@ -1,10 +1,19 @@
 
 service: pdf2img
 
+custom:
+   myStage: ${opt:stage, self:provider.stage}
+   myEnvironment:
+     HOSTURL:
+       prod: "https://d3mj1nbhrzlbf6.cloudfront.net"
+       dev: "http://localhost:3000"
+
 provider:
   name: aws
   runtime: nodejs8.10
-  stage: dev
+  stage: prod
+  environment:
+    HOSTURL: ${self:custom.myEnvironment.HOSTURL.${self:custom.myStage}}
   region: us-west-2
   memorySize: 3008
   timeout: 180
@@ -20,10 +29,14 @@ functions:
     handler: pdf2img.execute
     events:
       - s3:
-          bucket: "quiztrainer-quiz-images-${self:provider.stage}"
+          bucket: pdf
           event: s3:ObjectCreated:*
           rules:
             - suffix: .pdf
 
     environment:
       BUCKET: "quiztrainer-quiz-images-${self:provider.stage}"
+
+
+resources:
+  - ${file(resources/s3-bucket.yml)}

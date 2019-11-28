@@ -1,0 +1,73 @@
+Resources:
+  S3BucketPdf:
+    Type: AWS::S3::Bucket
+    Properties:
+      # Set the CORS policy
+      BucketName: "quiztrainer-quiz-images-${self:provider.stage}"
+      CorsConfiguration:
+        CorsRules:
+          -
+            AllowedOrigins:
+              - ${self:provider.environment.HOSTURL}
+            AllowedHeaders:
+              - '*'
+            AllowedMethods:
+              - GET
+              - PUT
+              - POST
+              - DELETE
+              - HEAD
+            MaxAge: 3000
+  Pdf2imgLambdaPermissionPdfS3:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      FunctionName:
+        "Fn::GetAtt":
+          - Pdf2imgLambdaFunction
+          - Arn
+      Principal: "s3.amazonaws.com"
+      Action: "lambda:InvokeFunction"
+      SourceAccount:
+        Ref: AWS::AccountId
+      SourceArn: "arn:aws:s3:::quiztrainer-quiz-images-${self:provider.stage}"
+  Pdf2imgRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: Logs
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+  PdfBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket:
+        Ref: S3BucketPdf
+      PolicyDocument:
+        Statement:
+          - Principal: "*"
+            Action:
+              - s3:GetObject
+            Effect: Allow
+            Sid: "AddPerm"
+            Resource:
+              Fn::Join:
+                - '/'
+                - - Fn::GetAtt:
+                    - S3BucketPdf
+                    - Arn
+                  - '*'
