@@ -7,3 +7,5 @@ jspm_packages
 output
 test.pdf
 lambda-ghostscript
+coverage
+.nyc_output
