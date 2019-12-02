@@ -5,7 +5,7 @@ custom:
    myStage: ${opt:stage, self:provider.stage}
    myEnvironment:
      HOSTURL:
-       prod: "https://d3mj1nbhrzlbf6.cloudfront.net"
+       prod: "https://pdf2jpgs.com"
        dev: "http://localhost:3000"
 
 provider:
