@@ -19,7 +19,7 @@ describe('grab the named pdf from s3', () => {
   });
 
   it('returns the locally saved image url', async () => {
-    return pdf2img.grabPdfFromS3("test").then(data => expect(data).toEqual("/tmp/test.pdf"));
+    return pdf2img.grabPdfFromS3("test.pdf").then(data => expect(data).toEqual("/tmp/test.pdf"));
   },21000);
 });
 
@@ -50,7 +50,7 @@ describe('execute main handler - grab pdf from s3 and save as bunch of images', 
   });
 
   it('returns success', async () => {
-    return pdf2img.execute({"Records":[{"s3": { "object": { "key":"pdfs/Test.pdf"}}}]}).then(data => expect(JSON.parse(data["body"])['input'])
+    return pdf2img.execute({"Records":[{"s3": { "object": { "key":"pdfs/test.pdf"}}}]}).then(data => expect(JSON.parse(data["body"])['input'])
       .toEqual("40 images were uploaded"))
   },60000);
 });
@@ -68,7 +68,7 @@ describe('getObject with error - can not retrieve s3 file', () => {
   });
 
   it('throws an error', async () => {
-    await expect(pdf2img.grabPdfFromS3("test")).rejects.toBeTruthy();
+    await expect(pdf2img.grabPdfFromS3("test.pdf")).rejects.toBeTruthy();
   },21000);
 });
 
