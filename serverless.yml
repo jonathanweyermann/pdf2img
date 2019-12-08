@@ -33,6 +33,11 @@ functions:
           event: s3:ObjectCreated:*
           rules:
             - suffix: .pdf
+      - s3:
+          bucket: pdf
+          event: s3:ObjectCreated:*
+          rules:
+            - suffix: .PDF
 
     environment:
       BUCKET: "quiztrainer-quiz-images-${self:provider.stage}"
