@@ -3,7 +3,7 @@
     "archiver": "^3.1.1",
     "archiver-promise": "^1.0.0",
     "await-exec": "^0.1.2",
-    "aws-sdk": "^2.546.0"
+    "aws-sdk": "^2.814.0"
   },
   "devDependencies": {
     "aws-sdk-mock": "^4.5.0",
